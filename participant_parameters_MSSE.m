@@ -7,7 +7,7 @@ filename_Actiheart_accl=strcat(participant_num,'_accel.txt');
 trial_start=9*60+10;                  %SPECIFY trial start time in seconds, minimum is 1s, can be changed
 trial_length=43*60+35;             %SPECIFY trial length time in seconds 22mins total
 
-fs_PPG=86.8;            %PPG sampling rate. SHOULD NOT CHANGE
+fs_PPG=86.8;            %PPG and accel sampling rate. SHOULD NOT CHANGE
 
 %specify starting HR for resting HR. Ideally specify someting.
 %If HR_start=0, will use calculated starting peak.

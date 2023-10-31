@@ -24,9 +24,9 @@
 
 %Make sure version numbers are same as top level script.
 clear
-accel_overlay_V9;
+accel_overlay_MSSE;
 
-PPG_flatten_V8; %time domain PPG HR from Systolic-Systolic spacing. 
+PPG_flatten_MSSE; %time domain PPG HR from Systolic-Systolic spacing. 
 %Make sure version number is same as top level script.
 
 %Imports slow motion artefact and DC-offset removed PPG raw signal from
@@ -40,7 +40,7 @@ PPG_conv=PPG_flat;
 % f is the corresponding frequencies to the spectral estimates p
 % t is a vector of time instants corresponding to the centers of the 
 % windowed segments used to compute short-time power spectrum estimates.
-[p,f,t]=pspectrum(PPG_conv, fs_PPG, 'spectrogram','FrequencyLimits',[0.7 3.5],'TimeResolution',time_resolution, "Reassign", true);
+[p,f,t]=pspectrum(PPG_conv, fs_PPG, 'spectrogram','FrequencyLimits',[0 10],'TimeResolution',time_resolution);
 % 
 % accel;  %import accelerometer data 
 % p=p./p_x; %divide out motion artefacts from accelerometry
@@ -66,22 +66,16 @@ idx(1)=idx1*(specify_start==0)+specify_start*(specify_start>0);
 
 %run fourier peak detect and decision tree for each time.
 for i=2:1:length(t)
-[X, iX, wX]=findpeaks(p(:,i).*(p(:,i)>0.5)); 
+[X, iX, wX]=findpeaks(p(:,i).*(p(:,i)>0.7)); 
 % X is a vector with local maxima
 % iX is a vector of the location of peaks
 % wX is a vector of the width of each peak
 
 [Xmin,iXmin]=min(abs(iX-idx(i-1)));
-if isempty(iXmin)
-    idx(i)=idx(i-1);
-    width(i)=width(i-1);
-else
 idx(i)=iX(iXmin);
 %if jump is too big, keep previous value
-idx(i)=iX(iXmin)*(abs(f(idx(i))-f(idx(i-1)))<=0.9)+idx(i-1)*(abs(f(idx(i))-f(idx(i-1)))>0.9);
+idx(i)=iX(iXmin)*(abs(f(idx(i))-f(idx(i-1)))<=0.8)+idx(i-1)*(abs(f(idx(i))-f(idx(i-1)))>0.8);
 width(i)=wX(iXmin);
-end
-
 end
 
 HR_sp=60*f(idx);  %derivation of heart rate from peak frequency
@@ -205,82 +199,12 @@ max_width=max((10/1024)*width*60);
 metrics = table(Actiheart_accuracy, PPG_self_consistency, Actiheart_RMSE, Actiheart_MAE_BPM, Actiheart_MAE_percent, mean_width, std_width, median_width, max_width);
 metrics_n = participant_num + "_metrics.xlsx";
 writetable(metrics,metrics_n);
-
-% Call activity_lables.m to get timestamped activity lables 
-activity_lables;
-heart_lables = strings(length(t_Actiheart), 1);
-% Iterate through all of the times that correspond with a HR reading
-for i = 1:1:length(t_Actiheart)
-    % Iterate through each label in acti_times
-    for j = 1:1:length(acti_times)
-        % If the heart rate occurs during an activity label it
-        if (t_Actiheart(i) >= acti_times(j,1)) && (t_Actiheart(i) <= acti_times(j,2))
-            heart_lables(i) = labels(j);
-        end
-    end
-    % If the heart rate wasn't labeled with an activity label it as a
-    % transition
-    if heart_lables(i) == ""
-        heart_lables(i) = "Transition";
-    end
-end
-
-% Check if there are flags. If there are flags add them to the data
-heart_flags = strings(length(t_Actiheart), 1);
-if iscell(flag_times) == 0
-    % iterate through each time corresponding to a heart rate
-    for i = 1:1:length(t_Actiheart)
-        % Iterate through each flag time
-        for j=1:1:length(flag_times)
-            % If the heart rate time falls in the flag time, label it
-            if (t_Actiheart(i) >= flag_times(j,1)) && (t_Actiheart(i) <= flag_times(j,2))
-                heart_flags(i) = flag(j);
-            end
-        end
-    end
-end
 % Output Heart Rate to a file
 %HR_Output ={[{'Time'}; t_PPG(I)'], [{'HR_Patch'}; HR_sp_smooth']};
-HR_Output = table(["Time", t_Actiheart.'; "Activity", heart_lables.'; "Flags", heart_flags.'; "HR_PPG" , HR_smooth_interp.'; "HR_Actiheart", HR_Actiheart.'].');
+HR_Output = table(["Time", t_PPG(I); "HR_PPG" , HR_sp_smooth;].');
 
 HR_Output_n = participant_num + "_PATCH_HR.csv";
 writetable(HR_Output, HR_Output_n)
-
-% Label and Flag ENMO data in similar way that HR data was done.
-enmo_lables = strings(length(time_actiheart), 1);
-% Iterate through all of the times that correspond with a ENMO reading
-for i = 1:1:length(time_actiheart)
-    % Iterate through each label in acti_times
-    for j = 1:1:length(acti_times)
-        % If the enmo was measured during an activity label it
-        if (time_actiheart(i) >= acti_times(j,1)) && (time_actiheart(i) <= acti_times(j,2))
-            enmo_lables(i) = labels(j);
-        end
-    end
-    % If the ENMO wasn't labeled with an activity, label it as a
-    % transition
-    if enmo_lables(i) == ""
-        enmo_lables(i) = "Transition";
-    end
-end
-% Check if there are flags. If there are flags add them to the data
-enmo_flags = strings(length(time_actiheart), 1);
-if iscell(flag_times) == 0
-    % iterate through each time corresponding to a heart rate
-    for i = 1:1:length(time_actiheart)
-        % Iterate through each flag time
-        for j=1:1:length(flag_times)
-            % If the heart rate time falls in the flag time, label it
-            if (time_actiheart(i) >= flag_times(j,1)) && (time_actiheart(i) <= flag_times(j,2))
-                enmo_flags(i) = flag(j);
-            end
-        end
-    end
-end
-% Output ENMO to a file
-enmo_table = table(["Time", time_actiheart; "Activity", enmo_lables.'; "Flag", enmo_flags.'; "PATCH_ENMO", ENMO.'; "ActiHeart_ENMO", ENMO_actiheart.'].');
-enmo_table_name = participant_num + "_PATCH_ENMO.csv";
-writetable(enmo_table, enmo_table_name)
 
 % Output Self Consistency Per Second
 
